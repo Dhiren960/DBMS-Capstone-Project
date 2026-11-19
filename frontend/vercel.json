@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://canteen-backend-xxxx.onrender.com/api/:path*" },
+    { "source": "/images/:path*", "destination": "https://canteen-backend-xxxx.onrender.com/images/:path*" }
+  ]
+}
