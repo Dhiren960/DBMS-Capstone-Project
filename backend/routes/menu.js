@@ -1,18 +1,14 @@
 const express = require("express");
-const path = require("path");
 const multer = require("multer");
 const pool = require("../db");
 const { requireAdmin } = require("../auth");
 
 const router = express.Router();
 
-// Image upload (admin adds a photo for a new item). Only the file PATH is stored in the database.
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, "..", "public", "images")),
-  filename: (req, file, cb) => cb(null, "upload-" + Date.now() + path.extname(file.originalname).toLowerCase()),
-});
+// Vercel cannot save uploaded files (read-only disk), so the photo is read into memory and NOT stored.
+// The item is still added; it shows the category icon until a photo file is added to frontend/public/images.
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 3 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(file.mimetype)),
 });
@@ -52,7 +48,7 @@ router.post("/", requireAdmin, upload.single("image"), async (req, res, next) =>
     if (!name || !(price > 0) || !categoryId) {
       return res.status(400).json({ error: "Name, price and category are required." });
     }
-    const image = req.file ? "/images/" + req.file.filename : null;
+    const image = null;
     const [r] = await pool.execute(
       "INSERT INTO menu_items (name, category_id, price, is_veg, image) VALUES (?, ?, ?, ?, ?)",
       [name, categoryId, price, isVeg, image]
@@ -89,18 +85,4 @@ router.patch("/:id", requireAdmin, async (req, res, next) => {
 });
 
 // DELETE /api/menu/:id  (admin)
-router.delete("/:id", requireAdmin, async (req, res, next) => {
-  try {
-    const [r] = await pool.execute("DELETE FROM menu_items WHERE item_id = ?", [Number(req.params.id)]);
-    if (!r.affectedRows) return res.status(404).json({ error: "Item not found." });
-    res.json({ ok: true });
-  } catch (e) {
-    // Foreign key protects old orders
-    if (e.code === "ER_ROW_IS_REFERENCED_2") {
-      return res.status(409).json({ error: "This item is part of past orders, so it cannot be deleted. Mark it Sold out instead." });
-    }
-    next(e);
-  }
-});
-
-module.exports = router;
+router.delete("
